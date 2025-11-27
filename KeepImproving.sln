@@ -1,11 +1,34 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36203.30 d17.14
+VisualStudioVersion = 17.14.36203.30
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "external", "external", "{98BFF09B-C3A1-4D73-BDFB-8B36BDD5C65B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "private", "private", "{729F2F19-13E9-49B1-95B8-BA0D398B0A50}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeepImproving.API", "src\external\private\KeepImproving.API\KeepImproving.API.csproj", "{E140C43B-948B-4D71-AAED-4D09803206B6}"
+EndProject
 Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E140C43B-948B-4D71-AAED-4D09803206B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E140C43B-948B-4D71-AAED-4D09803206B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E140C43B-948B-4D71-AAED-4D09803206B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E140C43B-948B-4D71-AAED-4D09803206B6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{98BFF09B-C3A1-4D73-BDFB-8B36BDD5C65B} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{729F2F19-13E9-49B1-95B8-BA0D398B0A50} = {98BFF09B-C3A1-4D73-BDFB-8B36BDD5C65B}
+		{E140C43B-948B-4D71-AAED-4D09803206B6} = {729F2F19-13E9-49B1-95B8-BA0D398B0A50}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B17E925C-CE4F-4364-B0E8-3FDBF71D9C01}

@@ -1,0 +1,9 @@
+services:
+  keep-improving:
+    build:
+      context: ./src/external/private/KeepImproving.API
+      dockerfile: Dockerfile
+    container_name: keep-improving
+    ports:
+      - "8080:8080"
+    restart: always
