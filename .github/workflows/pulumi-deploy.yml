@@ -23,7 +23,7 @@ jobs:
       with:
         command: up
         stack-name: dev
-        work-dir: deploy/KeepImproving
+        work-dir: deploy
 
       env:
         ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
