@@ -23,6 +23,7 @@ jobs:
       with:
         command: up
         stack-name: dev
+        stack-create: true
         work-dir: deploy
 
       env:
