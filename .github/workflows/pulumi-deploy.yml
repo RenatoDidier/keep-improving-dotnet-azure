@@ -22,8 +22,7 @@ jobs:
       uses: pulumi/actions@v4
       with:
         command: up
-        stack-name: dev
-        stack-create: true
+        stack-name: RenatoDidierFernandes/KeepImproving/dev
         work-dir: deploy
 
       env:
