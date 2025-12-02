@@ -19,14 +19,16 @@ public class KeepImprovingStack : Stack
 {
     public KeepImprovingStack()
     {
-        var config = new Pulumi.Config();
+        var configDocker = new Pulumi.Config("KeepImproving");
 
-        var dockerHubUser = config.RequireSecret("dockerHubUser");
-        var dockerHubToken = config.RequireSecret("dockerHubToken");
+        var dockerHubUser = configDocker.RequireSecret("dockerHubUser");
+        var dockerHubToken = configDocker.RequireSecret("dockerHubToken");
 
         var image = new Image("keepimproving-image", new ImageArgs
         {
-            ImageName = $"docker.io/{dockerHubUser}/keepimproving-api:latest",
+            ImageName = dockerHubUser.Apply(user =>
+                $"docker.io/{user.ToLower()}/keepimproving-api:latest"
+            ),
             Build = new DockerBuildArgs
             {
                 Context = "../src/external/private/KeepImproving.API",
