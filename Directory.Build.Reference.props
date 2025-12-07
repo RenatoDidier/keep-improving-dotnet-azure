@@ -4,6 +4,7 @@
         <RootPath Condition="  '$(RootPath)' == '' Or !HasTrailingSlash('$(RootPath)')  ">$(MSBuildThisFileDirectory)</RootPath>
         <CorePath Condition="  '$(CorePath)' == '' Or !HasTrailingSlash('$(CorePath)')  ">$(RootPath)src/core</CorePath>
         <ExternalPath Condition="  '$(ExternalPath)' == '' Or !HasTrailingSlash('$(ExternalPath)')  ">$(RootPath)src/external</ExternalPath>
+        <PrivatePath Condition="  '$(PrivatePath)' == '' Or !HasTrailingSlash('$(PrivatePath)')  ">$(ExternalPath)/private</PrivatePath>
     </PropertyGroup>
 
     <ItemGroup Condition="  $(MSBuildProjectName.EndsWith('.Application'))  ">
@@ -17,6 +18,22 @@
     <ItemGroup Condition="  $(MSBuildProjectName.EndsWith('.API'))  ">
         <ProjectReference Include="  $(CorePath)\KeepImproving.Application\KeepImproving.Application.csproj  " />
         <ProjectReference Include="  $(ExternalPath)\KeepImproving.Infra\KeepImproving.Infra.csproj  " />
+    </ItemGroup>
+
+    <ItemGroup Condition="  $(MSBuildProjectName.EndsWith('.Domain.Test'))  ">
+        <ProjectReference Include="  $(CorePath)\KeepImproving.Domain\KeepImproving.Domain.csproj  " />
+    </ItemGroup>
+
+    <ItemGroup Condition="  $(MSBuildProjectName.EndsWith('.Application.Test'))  ">
+        <ProjectReference Include="  $(CorePath)\KeepImproving.Application\KeepImproving.Application.csproj  " />
+    </ItemGroup>
+
+    <ItemGroup Condition="  $(MSBuildProjectName.EndsWith('.Infra.Test'))  ">
+        <ProjectReference Include="  $(ExternalPath)\KeepImproving.Infra\KeepImproving.Infra.csproj  " />
+    </ItemGroup>
+
+    <ItemGroup Condition="  $(MSBuildProjectName.EndsWith('.API.Test'))  ">
+        <ProjectReference Include="  $(PrivatePath)\KeepImproving.API\KeepImproving.API.csproj  " />
     </ItemGroup>
 
 </Project>

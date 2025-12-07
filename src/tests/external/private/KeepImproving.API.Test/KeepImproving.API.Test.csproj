@@ -1,7 +1,3 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\..\external\private\KeepImproving.API\KeepImproving.API.csproj" />
-  </ItemGroup>
-
 </Project>

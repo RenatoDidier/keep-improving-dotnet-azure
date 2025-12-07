@@ -1,7 +1,3 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\core\KeepImproving.Application\KeepImproving.Application.csproj" />
-  </ItemGroup>
-
 </Project>
