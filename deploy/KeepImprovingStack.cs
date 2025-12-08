@@ -73,7 +73,7 @@ public class KeepImprovingStack : Stack
             ImageName = Output.Format($"{acr.LoginServer}/keepimproving-image:{DateTime.UtcNow.ToString("yyyyMMddhhmmss")}"),
             Build = new DockerBuildArgs
             {
-                Context = "../src",
+                Context = "..",
                 Dockerfile = "../Dockerfile",
                 Platform = "linux/amd64"
             },

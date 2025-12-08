@@ -17,7 +17,6 @@ COPY ["src/tests/external/KeepImproving.Infra.Test/KeepImproving.Infra.Test.cspr
 COPY ["src/tests/external/private/KeepImproving.API.Test/KeepImproving.API.Test.csproj", "src/tests/external/private/KeepImproving.API.Test/"]
 
 RUN dotnet restore "KeepImproving.sln"
-WORKDIR "/src"
 COPY . .
 
 RUN dotnet build "src/external/private/KeepImproving.API/KeepImproving.API.csproj" -c Release -o /app/build
