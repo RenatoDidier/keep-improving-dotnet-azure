@@ -33,7 +33,10 @@
     <ItemGroup Condition=" $(MSBuildProjectName.EndsWith('.Application')) ">
     </ItemGroup>
 
-    <ItemGroup Condition=" $(MSBuildProjectName.EndsWith('.Infrastructure')) ">
+    <ItemGroup Condition=" $(MSBuildProjectName.EndsWith('.Infra')) ">
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     </ItemGroup>
 
     <ItemGroup Condition=" $(MSBuildProjectName.EndsWith('.API')) ">
