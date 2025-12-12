@@ -40,7 +40,8 @@
     </ItemGroup>
 
     <ItemGroup Condition=" $(MSBuildProjectName.EndsWith('.API')) ">
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+        <PackageReference Include="FastEndpoints" />
+        <PackageReference Include="FastEndpoints.Swagger" />
     </ItemGroup>
 
     <ItemGroup Condition=" $(MSBuildProjectName.EndsWith('.Tests')) ">

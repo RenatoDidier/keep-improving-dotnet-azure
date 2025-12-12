@@ -1,27 +1,28 @@
+using FastEndpoints;
+using FastEndpoints.Swagger;
 using KeepImproving.API.Extensions;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-
-builder.Services.ConfigureDatabase(builder.Configuration);
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
-builder.Services.AddHealthChecks();
+builder.Services.ConfigureDatabase(builder.Configuration)
+    .AddAuthorization()
+    .AddFastEndpointWithSwagger()
+    .AddHealthChecks();
 
 WebApplication app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
 
-app.MapControllers();
-app.MapHealthChecks("/health");
+app.UseFastEndpoints(options =>
+{
+    options.Endpoints.RoutePrefix = "api";
+});
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwaggerGen();
+}
 
-app.MapGet("/", () => "API Running");
+app.MapHealthChecks("/health");
 
 app.Run();
