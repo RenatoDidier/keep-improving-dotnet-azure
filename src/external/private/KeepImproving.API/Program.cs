@@ -1,10 +1,14 @@
-var builder = WebApplication.CreateBuilder(args);
+using KeepImproving.API.Extensions;
 
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+
+builder.Services.ConfigureDatabase(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
