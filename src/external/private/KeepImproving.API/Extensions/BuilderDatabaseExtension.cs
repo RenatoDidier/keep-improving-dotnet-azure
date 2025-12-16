@@ -11,7 +11,7 @@ public static class BuilderDatabaseExtension
         {
             string connection = configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string not found.");
 
-            options.UseNpgsql(connection);
+            options.UseSqlServer(connection);
         });
 
         return service;
