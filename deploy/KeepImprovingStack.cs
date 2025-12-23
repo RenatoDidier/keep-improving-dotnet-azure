@@ -20,13 +20,13 @@ public class KeepImprovingStack : Stack
 
         AppServicePlan appServicePlan = resourceManager.CreateAppServicePlan();
 
-        resourceManager.CreateSqlServerAndDatabase();
+        Output<string> connectionString = resourceManager.CreateSqlServerAndDatabaseAndFirewall();
 
         (Registry acr, Output<string> acrUsername, Output<string> acrPassword) = resourceManager.CreateACRCredentials();
 
         Image image = resourceManager.CreateImageDocker(acr, acrUsername, acrPassword);
 
-        resourceManager.CreateWebApp(appServicePlan, image, acr, acrUsername, acrPassword);
+        resourceManager.CreateWebApp(appServicePlan, image, acr, acrUsername, acrPassword, connectionString);
 
     }
 }

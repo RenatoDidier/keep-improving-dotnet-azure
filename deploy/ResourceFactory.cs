@@ -45,24 +45,56 @@ public class ResourceFactory
         return appServicePlan;
     }
 
-    public void CreateSqlServerAndDatabase()
+    public Output<string> CreateSqlServerAndDatabaseAndFirewall()
     {
+        string dbUsername = _pulumiSecrets.Require("dbUsername");
+        Output<string> dbPassword = _pulumiSecrets.RequireSecret("dbPassword");
+
         AzureNative.Sql.Server sqlServer = new("sqlServer", new()
         {
             ResourceGroupName = _resourceGroup.Name,
             Location = _resourceGroup.Location,
             ServerName = $"sql-{_projectName}-{_pulumiStack}",
-            AdministratorLogin = _pulumiSecrets.Require("dbUsername"),
-            AdministratorLoginPassword = Output.CreateSecret(_pulumiSecrets.Require("dbPassword")),
+            AdministratorLogin = dbUsername,
+            AdministratorLoginPassword = dbPassword,
             Version = "12.0",
         });
 
-        new AzureNative.Sql.Database("sqlDatabase", new()
+        AzureNative.Sql.Database database = new ("sqlDatabase", new()
         {
             ResourceGroupName = _resourceGroup.Name,
             ServerName = sqlServer.Name,
             DatabaseName = "keep-improving-db"
         });
+
+        new AzureNative.Sql.FirewallRule("allow-azure-services", new()
+        {
+            ResourceGroupName = _resourceGroup.Name,
+            ServerName = sqlServer.Name,
+            FirewallRuleName = "AllowAzureServices",
+            StartIpAddress = "0.0.0.0",
+            EndIpAddress = "0.0.0.0"
+        });
+
+        Output<string> connectionString = Output.Tuple<string, string, string, string>(
+                sqlServer.Name,
+                database.Name,
+                dbUsername,
+                dbPassword
+            )
+            .Apply(values =>
+            {
+                (string _sqlServer, string _sqlDatabase, string _sqlUser, string _sqlPassword) = values;
+
+                return $"Server=tcp:{_sqlServer}.database.windows.net,1433;" +
+                       $"Initial Catalog={_sqlDatabase};" +
+                       $"User ID={_sqlUser};" +
+                       $"Password={_sqlPassword};" +
+                       "Encrypt=True;TrustServerCertificate=False;";
+            });
+
+
+        return Output.CreateSecret(connectionString);
     }
 
     public (Registry acr, Output<string> acrUsername, Output<string> acrPassword) CreateACRCredentials()
@@ -99,7 +131,7 @@ public class ResourceFactory
     {
         Image image = new ("keepimproving-image", new ImageArgs
         {
-            ImageName = Output.Format($"{acr.LoginServer}/keepimproving-image:{DateTime.UtcNow.ToString("yyyyMMddhhmmss")}"),
+            ImageName = Output.Format($"{acr.LoginServer}/keepimproving-api:latest"),
             Build = new DockerBuildArgs
             {
                 Context = "..",
@@ -117,7 +149,7 @@ public class ResourceFactory
         return image;
     }
 
-    public void CreateWebApp(AppServicePlan appServicePlan, Image image, Registry acr, Output<string> acrUsername, Output<string> acrPassword)
+    public void CreateWebApp(AppServicePlan appServicePlan, Image image, Registry acr, Output<string> acrUsername, Output<string> acrPassword, Output<string> connectionString)
     {
         var webApp = new WebApp("webApp", new()
         {
@@ -148,6 +180,11 @@ public class ResourceFactory
                     },
                     new NameValuePairArgs
                     {
+                        Name = "DOCKER_ENABLE_CI",
+                        Value = "true"
+                    },
+                    new NameValuePairArgs
+                    {
                         Name = "WEBSITES_PORT",
                         Value = "8080"
                     },
@@ -157,9 +194,21 @@ public class ResourceFactory
                         Value = _pulumiStack
                     }
                 },
+                ConnectionStrings =
+                {
+                    new ConnStringInfoArgs
+                    {
+                        Name = "DefaultConnection",
+                        Type = ConnectionStringType.SQLAzure,
+                        ConnectionString = connectionString
+                    }
+                },
                 AutoHealEnabled = true,
                 HealthCheckPath = "/health",
             },
+
+
+
         });
     }
     public static class PulumiNameFormatter
