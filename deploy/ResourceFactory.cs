@@ -1,6 +1,10 @@
-﻿using Pulumi;
+﻿using KeepImproving;
+using Pulumi;
+using Pulumi.AzureNative.Authorization;
 using Pulumi.AzureNative.ContainerRegistry;
 using Pulumi.AzureNative.ContainerRegistry.Inputs;
+using Pulumi.AzureNative.KeyVault;
+using Pulumi.AzureNative.ManagedIdentity;
 using Pulumi.AzureNative.Resources;
 using Pulumi.AzureNative.Web;
 using Pulumi.AzureNative.Web.Inputs;
@@ -13,14 +17,31 @@ public class ResourceFactory
     private readonly string _projectName;
     private readonly string _pulumiStack;
     private readonly ResourceGroup _resourceGroup;
-    private readonly Pulumi.Config _pulumiSecrets;
+    private readonly AzureIdentity _azureIdentity;
 
-    public ResourceFactory(string projectName, string pulumiStack, ResourceGroup resourceGroup)
+    private readonly Pulumi.Config _pulumiSecrets;
+    private readonly InputMap<string> _tags;
+
+
+    public ResourceFactory(
+            string projectName, 
+            string pulumiStack, 
+            ResourceGroup resourceGroup,
+            AzureIdentity azureIdentity
+        )
     {
         _projectName = PulumiNameFormatter.Format(projectName);
         _pulumiStack = pulumiStack;
         _resourceGroup = resourceGroup;
+        _azureIdentity = azureIdentity;
+
         _pulumiSecrets = new Pulumi.Config(projectName);
+        _tags = new InputMap<string>()
+        {
+            {"Project", projectName },
+            {"Stack", pulumiStack}
+        };
+
     }
 
     public AppServicePlan CreateAppServicePlan()
@@ -29,6 +50,7 @@ public class ResourceFactory
         {
             Name = $"asp-{_projectName}-{_pulumiStack}",
             Kind = "linux",
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ResourceGroupName = _resourceGroup.Name,
             Sku = new SkuDescriptionArgs
@@ -45,56 +67,58 @@ public class ResourceFactory
         return appServicePlan;
     }
 
-    public Output<string> CreateSqlServerAndDatabaseAndFirewall()
+    public Vault CreateKeyVault()
     {
-        string dbUsername = _pulumiSecrets.Require("dbUsername");
-        Output<string> dbPassword = _pulumiSecrets.RequireSecret("dbPassword");
 
-        AzureNative.Sql.Server sqlServer = new("sqlServer", new()
+        Output<string> tenantId = _azureIdentity.TenantId.Apply(tenantId => tenantId);
+
+        Vault keyVault = new($"kv-{_pulumiStack}", new VaultArgs
+        {
+            ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags!,
+            Location = _resourceGroup.Location,
+            Properties = new AzureNative.KeyVault.Inputs.VaultPropertiesArgs
+            {
+                TenantId = tenantId,
+                Sku = new AzureNative.KeyVault.Inputs.SkuArgs
+                {
+                    Name = AzureNative.KeyVault.SkuName.Standard,
+                    Family = AzureNative.KeyVault.SkuFamily.A,
+                },
+                PublicNetworkAccess = "Enabled",
+                EnableRbacAuthorization = true,
+                EnabledForDeployment = true,
+                EnabledForDiskEncryption = true,
+                EnabledForTemplateDeployment = true,
+            },
+        });
+
+        return keyVault;
+    }
+
+    public UserAssignedIdentity CreateUserAssignedIdentity()
+    {
+        var identity = new UserAssignedIdentity($"uami-{_projectName}-{_pulumiStack}", new()
         {
             ResourceGroupName = _resourceGroup.Name,
             Location = _resourceGroup.Location,
-            ServerName = $"sql-{_projectName}-{_pulumiStack}",
-            AdministratorLogin = dbUsername,
-            AdministratorLoginPassword = dbPassword,
-            Version = "12.0",
+            Tags = _tags!
         });
 
-        AzureNative.Sql.Database database = new ("sqlDatabase", new()
+        return identity;
+    }
+
+    public void AssignKeyVaultAccessThroughIdentity(Vault keyVault, UserAssignedIdentity userIdentity)
+    {
+        Output<string> roleDefinitionId = _azureIdentity.SubscriptionId.Apply(subId => $"/subscriptions/{subId}/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6");
+
+        new RoleAssignment($"rbac-kv-{_projectName}-{_pulumiStack}", new()
         {
-            ResourceGroupName = _resourceGroup.Name,
-            ServerName = sqlServer.Name,
-            DatabaseName = "keep-improving-db"
+            Scope = keyVault.Id,
+            RoleDefinitionId = roleDefinitionId,
+            PrincipalId = userIdentity.PrincipalId,
+            PrincipalType = PrincipalType.ServicePrincipal
         });
-
-        new AzureNative.Sql.FirewallRule("allow-azure-services", new()
-        {
-            ResourceGroupName = _resourceGroup.Name,
-            ServerName = sqlServer.Name,
-            FirewallRuleName = "AllowAzureServices",
-            StartIpAddress = "0.0.0.0",
-            EndIpAddress = "0.0.0.0"
-        });
-
-        Output<string> connectionString = Output.Tuple<string, string, string, string>(
-                sqlServer.Name,
-                database.Name,
-                dbUsername,
-                dbPassword
-            )
-            .Apply(values =>
-            {
-                (string _sqlServer, string _sqlDatabase, string _sqlUser, string _sqlPassword) = values;
-
-                return $"Server=tcp:{_sqlServer}.database.windows.net,1433;" +
-                       $"Initial Catalog={_sqlDatabase};" +
-                       $"User ID={_sqlUser};" +
-                       $"Password={_sqlPassword};" +
-                       "Encrypt=True;TrustServerCertificate=False;";
-            });
-
-
-        return Output.CreateSecret(connectionString);
     }
 
     public (Registry acr, Output<string> acrUsername, Output<string> acrPassword) CreateACRCredentials()
@@ -149,11 +173,66 @@ public class ResourceFactory
         return image;
     }
 
+    public Output<string> CreateSqlServerAndDatabaseAndFirewall()
+    {
+        string dbUsername = _pulumiSecrets.Require("dbUsername");
+        Output<string> dbPassword = _pulumiSecrets.RequireSecret("dbPassword");
+
+        AzureNative.Sql.Server sqlServer = new("sqlServer", new()
+        {
+            ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags,
+            Location = _resourceGroup.Location,
+            ServerName = $"sql-{_projectName}-{_pulumiStack}",
+            AdministratorLogin = dbUsername,
+            AdministratorLoginPassword = dbPassword,
+            Version = "12.0",
+        });
+
+        AzureNative.Sql.Database database = new("sqlDatabase", new()
+        {
+            ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags,
+            ServerName = sqlServer.Name,
+            DatabaseName = "keep-improving-db"
+        });
+
+        new AzureNative.Sql.FirewallRule("allow-azure-services", new()
+        {
+            ResourceGroupName = _resourceGroup.Name,
+            ServerName = sqlServer.Name,
+            FirewallRuleName = "AllowAzureServices",
+            StartIpAddress = "0.0.0.0",
+            EndIpAddress = "0.0.0.0"
+        });
+
+        Output<string> connectionString = Output.Tuple<string, string, string, string>(
+                sqlServer.Name,
+                database.Name,
+                dbUsername,
+                dbPassword
+            )
+            .Apply(values =>
+            {
+                (string _sqlServer, string _sqlDatabase, string _sqlUser, string _sqlPassword) = values;
+
+                return $"Server=tcp:{_sqlServer}.database.windows.net,1433;" +
+                       $"Initial Catalog={_sqlDatabase};" +
+                       $"User ID={_sqlUser};" +
+                       $"Password={_sqlPassword};" +
+                       "Encrypt=True;TrustServerCertificate=False;";
+            });
+
+
+        return Output.CreateSecret(connectionString);
+    }
+
     public void CreateWebApp(AppServicePlan appServicePlan, Image image, Registry acr, Output<string> acrUsername, Output<string> acrPassword, Output<string> connectionString)
     {
         var webApp = new WebApp("webApp", new()
         {
             Kind = "app,linux",
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ResourceGroupName = _resourceGroup.Name,
             Name = $"app-{_projectName}-{_pulumiStack}-api",
@@ -211,6 +290,9 @@ public class ResourceFactory
 
         });
     }
+    
+
+
     public static class PulumiNameFormatter
     {
         public static string Format(string name)
