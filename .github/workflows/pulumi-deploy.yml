@@ -26,20 +26,28 @@ jobs:
     - name: Login Azure
       uses: azure/login@v1
       with:
+        auth-type: SERVICE_PRINCIPAL
         client-id: ${{ secrets.AZURE_CLIENT_ID }}
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
+    - name: Install sqlcmd
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mssql-tools unixodbc-dev
+        echo "/opt/mssql-tools/bin" >> $GITHUB_PATH
+
     - name: Pulumi Up
       uses: pulumi/actions@v4
       with:
         command: up
-        stack-name: RenatoDidierFernandes/KeepImprovingProject/dev
+        stack-name: RenatoDidierFernandes/KeepImprovingProject/${{ inputs.environment }}-${{ github.ref_name }}
         work-dir: deploy
 
     - name: Export Pulumi Outputs
@@ -56,11 +64,11 @@ jobs:
           -Q "
             IF NOT EXISTS (
               SELECT 1 FROM sys.database_principals
-              WHERE name = 'uami-keepimprovingproject-dev'
+              WHERE name = 'uami-keepimprovingproject-${{ inputs.environment }}'
             )
             BEGIN
-              CREATE USER [uami-keepimprovingproject-dev] FROM EXTERNAL PROVIDER;
-              ALTER ROLE db_datareader ADD MEMBER [uami-keepimprovingproject-dev];
-              ALTER ROLE db_datawriter ADD MEMBER [uami-keepimprovingproject-dev];
+              CREATE USER [uami-keepimprovingproject-${{ inputs.environment }}] FROM EXTERNAL PROVIDER;
+              ALTER ROLE db_datareader ADD MEMBER [uami-keepimprovingproject-${{ inputs.environment }}];
+              ALTER ROLE db_datawriter ADD MEMBER [uami-keepimprovingproject-${{ inputs.environment }}];
             END
           "
