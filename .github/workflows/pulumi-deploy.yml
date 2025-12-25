@@ -45,8 +45,17 @@ jobs:
     - name: Install sqlcmd
       run: |
         sudo apt-get update
-        sudo apt-get install -y mssql-tools unixodbc-dev
-        echo "/opt/mssql-tools/bin" >> $GITHUB_PATH
+        sudo apt-get install -y curl apt-transport-https gnupg lsb-release
+
+        curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+
+        sudo add-apt-repository "$(curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list)"
+
+        sudo apt-get update
+        sudo apt-get install -y mssql-tools18 unixodbc-dev
+
+        echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
+
 
     - name: Pulumi Up
       uses: pulumi/actions@v4
@@ -62,10 +71,9 @@ jobs:
 
     - name: SQL Bootstrap (AAD)
       run: |
-        sqlcmd \
+        sqlcmd -C -G \
           -S $SQL_SERVER.database.windows.net \
           -d $SQL_DATABASE \
-          -G \
           -Q "
             IF NOT EXISTS (
               SELECT 1 FROM sys.database_principals
