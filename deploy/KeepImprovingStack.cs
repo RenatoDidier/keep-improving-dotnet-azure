@@ -16,17 +16,17 @@ public class KeepImprovingStack : Stack
         var projectName = Pulumi.Deployment.Instance.ProjectName;
         var pulumiStack = Pulumi.Deployment.Instance.StackName;
 
-        ResourceFactory resourceManager = new(projectName, pulumiStack, resourceGroup);
+        ResourceFactory resourceFactory = new(projectName, pulumiStack, resourceGroup);
 
-        AppServicePlan appServicePlan = resourceManager.CreateAppServicePlan();
+        AppServicePlan appServicePlan = resourceFactory.CreateAppServicePlan();
 
-        Output<string> connectionString = resourceManager.CreateSqlServerAndDatabaseAndFirewall();
+        Output<string> connectionString = resourceFactory.CreateSqlServerAndDatabaseAndFirewall();
 
-        (Registry acr, Output<string> acrUsername, Output<string> acrPassword) = resourceManager.CreateACRCredentials();
+        (Registry acr, Output<string> acrUsername, Output<string> acrPassword) = resourceFactory.CreateACRCredentials();
 
-        Image image = resourceManager.CreateImageDocker(acr, acrUsername, acrPassword);
+        Image image = resourceFactory.CreateImageDocker(acr, acrUsername, acrPassword);
 
-        resourceManager.CreateWebApp(appServicePlan, image, acr, acrUsername, acrPassword, connectionString);
+        resourceFactory.CreateWebApp(appServicePlan, image, acr, acrUsername, acrPassword, connectionString);
 
     }
 }
