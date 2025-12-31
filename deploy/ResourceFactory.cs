@@ -1,4 +1,5 @@
-﻿using Pulumi;
+﻿using KeepImproving.Deploy;
+using Pulumi;
 using Pulumi.AzureNative.ContainerRegistry;
 using Pulumi.AzureNative.ContainerRegistry.Inputs;
 using Pulumi.AzureNative.Resources;
@@ -13,13 +14,18 @@ public class ResourceFactory
     private readonly string _projectName;
     private readonly string _pulumiStack;
     private readonly ResourceGroup _resourceGroup;
+    private readonly AzureIdentity _azureIdentity;
+
     private readonly Pulumi.Config _pulumiSecrets;
 
-    public ResourceFactory(string projectName, string pulumiStack, ResourceGroup resourceGroup)
+
+    public ResourceFactory(string projectName, string pulumiStack, ResourceGroup resourceGroup, AzureIdentity azureIdentity)
     {
         _projectName = PulumiNameFormatter.Format(projectName);
         _pulumiStack = pulumiStack;
         _resourceGroup = resourceGroup;
+        _azureIdentity = azureIdentity;
+
         _pulumiSecrets = new Pulumi.Config(projectName);
     }
 

@@ -1,4 +1,5 @@
 ﻿using Pulumi;
+using Pulumi.AzureNative.Authorization;
 using Pulumi.AzureNative.ContainerRegistry;
 using Pulumi.AzureNative.Resources;
 using Pulumi.AzureNative.Web;
@@ -11,12 +12,21 @@ public class KeepImprovingStack : Stack
 {
     public KeepImprovingStack()
     {
-        var resourceGroup = ResourceGroup.Get("rg-keepimproving-dev-brs", "/subscriptions/39a689b6-9fb4-4598-a6d7-9bd1994848ab/resourceGroups/rg-keepimproving-dev-brs");
-
+        Output<GetClientConfigResult>? getCliente = Output.Create(GetClientConfig.InvokeAsync());
+        AzureIdentity azureIdentity = new()
+        {
+            SubscriptionId = getCliente.Apply(c => c.SubscriptionId),
+            TenantId = getCliente.Apply(c => c.TenantId),
+        };
         var projectName = Pulumi.Deployment.Instance.ProjectName;
         var pulumiStack = Pulumi.Deployment.Instance.StackName;
 
-        ResourceFactory resourceFactory = new(projectName, pulumiStack, resourceGroup);
+        Output<string> resourceId = azureIdentity.SubscriptionId.Apply(subId =>
+            $"/subscriptions/{subId}/resourceGroups/rg-keepimproving-dev-brs"
+        );
+        var resourceGroup = ResourceGroup.Get("rg-keepimproving-dev-brs", resourceId);
+
+        ResourceFactory resourceFactory = new(projectName, pulumiStack, resourceGroup, azureIdentity);
 
         AppServicePlan appServicePlan = resourceFactory.CreateAppServicePlan();
 
