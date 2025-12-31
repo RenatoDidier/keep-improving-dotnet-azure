@@ -2,6 +2,7 @@
 using Pulumi;
 using Pulumi.AzureNative.ContainerRegistry;
 using Pulumi.AzureNative.ContainerRegistry.Inputs;
+using Pulumi.AzureNative.KeyVault;
 using Pulumi.AzureNative.Resources;
 using Pulumi.AzureNative.Web;
 using Pulumi.AzureNative.Web.Inputs;
@@ -56,6 +57,35 @@ public class ResourceFactory
         });
 
         return appServicePlan;
+    }
+
+    public Vault CreateKeyVault()
+    {
+
+        Output<string> tenantId = _azureIdentity.TenantId.Apply(tenantId => tenantId);
+
+        Vault keyVault = new($"kv-{_pulumiStack}", new VaultArgs
+        {
+            ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags!,
+            Location = _resourceGroup.Location,
+            Properties = new AzureNative.KeyVault.Inputs.VaultPropertiesArgs
+            {
+                TenantId = tenantId,
+                Sku = new AzureNative.KeyVault.Inputs.SkuArgs
+                {
+                    Name = AzureNative.KeyVault.SkuName.Standard,
+                    Family = AzureNative.KeyVault.SkuFamily.A,
+                },
+                PublicNetworkAccess = "Enabled",
+                EnableRbacAuthorization = true,
+                EnabledForDeployment = true,
+                EnabledForDiskEncryption = true,
+                EnabledForTemplateDeployment = true,
+            },
+        });
+
+        return keyVault;
     }
 
     public Output<string> CreateSqlServerAndDatabaseAndFirewall()

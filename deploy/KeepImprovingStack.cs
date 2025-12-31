@@ -1,6 +1,7 @@
 ﻿using Pulumi;
 using Pulumi.AzureNative.Authorization;
 using Pulumi.AzureNative.ContainerRegistry;
+using Pulumi.AzureNative.KeyVault;
 using Pulumi.AzureNative.Resources;
 using Pulumi.AzureNative.Web;
 using Pulumi.Docker;
@@ -29,6 +30,8 @@ public class KeepImprovingStack : Stack
         ResourceFactory resourceFactory = new(projectName, pulumiStack, resourceGroup, azureIdentity);
 
         AppServicePlan appServicePlan = resourceFactory.CreateAppServicePlan();
+
+        Vault keyVault = resourceFactory.CreateKeyVault();
 
         Output<string> connectionString = resourceFactory.CreateSqlServerAndDatabaseAndFirewall();
 
