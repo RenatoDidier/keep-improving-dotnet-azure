@@ -17,6 +17,7 @@ public class ResourceFactory
     private readonly AzureIdentity _azureIdentity;
 
     private readonly Pulumi.Config _pulumiSecrets;
+    private readonly InputMap<string> _tags;
 
 
     public ResourceFactory(string projectName, string pulumiStack, ResourceGroup resourceGroup, AzureIdentity azureIdentity)
@@ -27,6 +28,11 @@ public class ResourceFactory
         _azureIdentity = azureIdentity;
 
         _pulumiSecrets = new Pulumi.Config(projectName);
+        _tags = new InputMap<string>()
+        {
+            {"Project", projectName },
+            {"Stack", pulumiStack}
+        };
     }
 
     public AppServicePlan CreateAppServicePlan()
@@ -35,6 +41,7 @@ public class ResourceFactory
         {
             Name = $"asp-{_projectName}-{_pulumiStack}",
             Kind = "linux",
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ResourceGroupName = _resourceGroup.Name,
             Sku = new SkuDescriptionArgs
@@ -59,6 +66,7 @@ public class ResourceFactory
         AzureNative.Sql.Server sqlServer = new("sqlServer", new()
         {
             ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ServerName = $"sql-{_projectName}-{_pulumiStack}",
             AdministratorLogin = dbUsername,
@@ -69,6 +77,7 @@ public class ResourceFactory
         AzureNative.Sql.Database database = new ("sqlDatabase", new()
         {
             ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags,
             ServerName = sqlServer.Name,
             DatabaseName = "keep-improving-db"
         });
@@ -160,6 +169,7 @@ public class ResourceFactory
         var webApp = new WebApp("webApp", new()
         {
             Kind = "app,linux",
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ResourceGroupName = _resourceGroup.Name,
             Name = $"app-{_projectName}-{_pulumiStack}-api",
