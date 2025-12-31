@@ -58,7 +58,7 @@ jobs:
       uses: pulumi/actions@v4
       with:
         command: up
-        stack-name: RenatoDidierFernandes/KeepImprovingProject/${{ inputs.environment }}-${{ github.ref_name }}
+        stack-name: RenatoDidierFernandes/KeepImprovingProject/${{ inputs.environment }}
         work-dir: deploy
 
     - name: Export Pulumi Outputs
