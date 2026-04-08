@@ -1,6 +1,8 @@
-﻿using Pulumi;
+﻿using KeepImproving.Deploy;
+using Pulumi;
 using Pulumi.AzureNative.ContainerRegistry;
 using Pulumi.AzureNative.ContainerRegistry.Inputs;
+using Pulumi.AzureNative.KeyVault;
 using Pulumi.AzureNative.Resources;
 using Pulumi.AzureNative.Web;
 using Pulumi.AzureNative.Web.Inputs;
@@ -13,14 +15,25 @@ public class ResourceFactory
     private readonly string _projectName;
     private readonly string _pulumiStack;
     private readonly ResourceGroup _resourceGroup;
-    private readonly Pulumi.Config _pulumiSecrets;
+    private readonly AzureIdentity _azureIdentity;
 
-    public ResourceFactory(string projectName, string pulumiStack, ResourceGroup resourceGroup)
+    private readonly Pulumi.Config _pulumiSecrets;
+    private readonly InputMap<string> _tags;
+
+
+    public ResourceFactory(string projectName, string pulumiStack, ResourceGroup resourceGroup, AzureIdentity azureIdentity)
     {
         _projectName = PulumiNameFormatter.Format(projectName);
         _pulumiStack = pulumiStack;
         _resourceGroup = resourceGroup;
+        _azureIdentity = azureIdentity;
+
         _pulumiSecrets = new Pulumi.Config(projectName);
+        _tags = new InputMap<string>()
+        {
+            {"Project", projectName },
+            {"Stack", pulumiStack}
+        };
     }
 
     public AppServicePlan CreateAppServicePlan()
@@ -29,6 +42,7 @@ public class ResourceFactory
         {
             Name = $"asp-{_projectName}-{_pulumiStack}",
             Kind = "linux",
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ResourceGroupName = _resourceGroup.Name,
             Sku = new SkuDescriptionArgs
@@ -45,6 +59,35 @@ public class ResourceFactory
         return appServicePlan;
     }
 
+    public Vault CreateKeyVault()
+    {
+
+        Output<string> tenantId = _azureIdentity.TenantId.Apply(tenantId => tenantId);
+
+        Vault keyVault = new($"kv-{_pulumiStack}", new VaultArgs
+        {
+            ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags!,
+            Location = _resourceGroup.Location,
+            Properties = new AzureNative.KeyVault.Inputs.VaultPropertiesArgs
+            {
+                TenantId = tenantId,
+                Sku = new AzureNative.KeyVault.Inputs.SkuArgs
+                {
+                    Name = AzureNative.KeyVault.SkuName.Standard,
+                    Family = AzureNative.KeyVault.SkuFamily.A,
+                },
+                PublicNetworkAccess = "Enabled",
+                EnableRbacAuthorization = true,
+                EnabledForDeployment = true,
+                EnabledForDiskEncryption = true,
+                EnabledForTemplateDeployment = true,
+            },
+        });
+
+        return keyVault;
+    }
+
     public Output<string> CreateSqlServerAndDatabaseAndFirewall()
     {
         string dbUsername = _pulumiSecrets.Require("dbUsername");
@@ -53,6 +96,7 @@ public class ResourceFactory
         AzureNative.Sql.Server sqlServer = new("sqlServer", new()
         {
             ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ServerName = $"sql-{_projectName}-{_pulumiStack}",
             AdministratorLogin = dbUsername,
@@ -63,6 +107,7 @@ public class ResourceFactory
         AzureNative.Sql.Database database = new ("sqlDatabase", new()
         {
             ResourceGroupName = _resourceGroup.Name,
+            Tags = _tags,
             ServerName = sqlServer.Name,
             DatabaseName = "keep-improving-db"
         });
@@ -154,6 +199,7 @@ public class ResourceFactory
         var webApp = new WebApp("webApp", new()
         {
             Kind = "app,linux",
+            Tags = _tags,
             Location = _resourceGroup.Location,
             ResourceGroupName = _resourceGroup.Name,
             Name = $"app-{_projectName}-{_pulumiStack}-api",

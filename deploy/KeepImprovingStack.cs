@@ -1,5 +1,7 @@
 ﻿using Pulumi;
+using Pulumi.AzureNative.Authorization;
 using Pulumi.AzureNative.ContainerRegistry;
+using Pulumi.AzureNative.KeyVault;
 using Pulumi.AzureNative.Resources;
 using Pulumi.AzureNative.Web;
 using Pulumi.Docker;
@@ -11,22 +13,33 @@ public class KeepImprovingStack : Stack
 {
     public KeepImprovingStack()
     {
-        var resourceGroup = ResourceGroup.Get("rg-keepimproving-dev-brs", "/subscriptions/39a689b6-9fb4-4598-a6d7-9bd1994848ab/resourceGroups/rg-keepimproving-dev-brs");
-
+        Output<GetClientConfigResult>? getCliente = Output.Create(GetClientConfig.InvokeAsync());
+        AzureIdentity azureIdentity = new()
+        {
+            SubscriptionId = getCliente.Apply(c => c.SubscriptionId),
+            TenantId = getCliente.Apply(c => c.TenantId),
+        };
         var projectName = Pulumi.Deployment.Instance.ProjectName;
         var pulumiStack = Pulumi.Deployment.Instance.StackName;
 
-        ResourceFactory resourceManager = new(projectName, pulumiStack, resourceGroup);
+        Output<string> resourceId = azureIdentity.SubscriptionId.Apply(subId =>
+            $"/subscriptions/{subId}/resourceGroups/rg-keepimproving-dev-brs"
+        );
+        var resourceGroup = ResourceGroup.Get("rg-keepimproving-dev-brs", resourceId);
 
-        AppServicePlan appServicePlan = resourceManager.CreateAppServicePlan();
+        ResourceFactory resourceFactory = new(projectName, pulumiStack, resourceGroup, azureIdentity);
 
-        Output<string> connectionString = resourceManager.CreateSqlServerAndDatabaseAndFirewall();
+        AppServicePlan appServicePlan = resourceFactory.CreateAppServicePlan();
 
-        (Registry acr, Output<string> acrUsername, Output<string> acrPassword) = resourceManager.CreateACRCredentials();
+        Vault keyVault = resourceFactory.CreateKeyVault();
 
-        Image image = resourceManager.CreateImageDocker(acr, acrUsername, acrPassword);
+        Output<string> connectionString = resourceFactory.CreateSqlServerAndDatabaseAndFirewall();
 
-        resourceManager.CreateWebApp(appServicePlan, image, acr, acrUsername, acrPassword, connectionString);
+        (Registry acr, Output<string> acrUsername, Output<string> acrPassword) = resourceFactory.CreateACRCredentials();
+
+        Image image = resourceFactory.CreateImageDocker(acr, acrUsername, acrPassword);
+
+        resourceFactory.CreateWebApp(appServicePlan, image, acr, acrUsername, acrPassword, connectionString);
 
     }
 }
