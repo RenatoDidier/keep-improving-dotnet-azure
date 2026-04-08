@@ -1,9 +1,17 @@
 name: Deploy Infra via Pulumi
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente / stack base"
+        required: true
+        default: "dev"
+
+permissions:
+  contents: read
+  id-token: write
+
 
   workflow_dispatch:
 
@@ -11,28 +19,68 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_OIDC_CLIENT_ID: ${{ secrets.AZURE_OIDC_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Login Azure
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_OIDC_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
-    - name: Setup Pulumi
+    - name: Install sqlcmd
+      run: |
+        curl -sSL https://packages.microsoft.com/keys/microsoft.asc \
+          | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
+
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] \
+          https://packages.microsoft.com/ubuntu/22.04/prod jammy main" \
+          | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
+
+        sudo apt-get update
+        sudo apt-get install -y sqlcmd
+
+    - name: Pulumi Up
       uses: pulumi/actions@v4
       with:
         command: up
-        stack-name: RenatoDidierFernandes/KeepImprovingProject/dev
+        stack-name: RenatoDidierFernandes/KeepImprovingProject/${{ inputs.environment }}
         work-dir: deploy
 
-      env:
-        ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-                
-        PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-        PULUMI_DOCKERHUB_USER: ${{ secrets.PULUMI_DOCKERHUB_USER }}
-        PULUMI_DOCKERHUB_TOKEN: ${{ secrets.PULUMI_DOCKERHUB_TOKEN }}
+    - name: Export Pulumi Outputs
+      run: |
+        echo "SQL_SERVER=$(pulumi stack output sqlServerName)" >> $GITHUB_ENV
+        echo "SQL_DATABASE=$(pulumi stack output sqlDatabaseName)" >> $GITHUB_ENV
+
+    - name: SQL Bootstrap (AAD)
+      run: |
+        sqlcmd -C -G \
+          -S $SQL_SERVER.database.windows.net \
+          -d $SQL_DATABASE \
+          -Q "
+            IF NOT EXISTS (
+              SELECT 1 FROM sys.database_principals
+              WHERE name = 'uami-keepimprovingproject-${{ inputs.environment }}'
+            )
+            BEGIN
+              CREATE USER [uami-keepimprovingproject-${{ inputs.environment }}] FROM EXTERNAL PROVIDER;
+              ALTER ROLE db_datareader ADD MEMBER [uami-keepimprovingproject-${{ inputs.environment }}];
+              ALTER ROLE db_datawriter ADD MEMBER [uami-keepimprovingproject-${{ inputs.environment }}];
+            END
+          "
